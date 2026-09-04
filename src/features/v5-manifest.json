@@ -1,0 +1,25 @@
+{
+  "version": "5.0",
+  "name": "Rush Universe",
+  "tinyCaps": true,
+  "trc": true,
+  "features": [
+    "ai_game_master",
+    "pvp_arena",
+    "elo_ranked_seasons",
+    "clans",
+    "clan_wars",
+    "battle_pass",
+    "collectibles",
+    "lucky_wheel",
+    "dynamic_economy",
+    "player_statistics",
+    "smart_notifications",
+    "referral_campaigns",
+    "live_events",
+    "hall_of_fame",
+    "advanced_anti_abuse",
+    "admin_control_center",
+    "rush_ai_director"
+  ]
+}

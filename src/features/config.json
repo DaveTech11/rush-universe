@@ -1,0 +1,19 @@
+{
+  "tinyCaps": true,
+  "trcStyle": true,
+  "features": {
+    "dailyStreaks": true,
+    "quests": true,
+    "achievements": true,
+    "pvp": true,
+    "shop": true,
+    "mysteryBoxes": true,
+    "tournaments": true,
+    "seasonalEvents": true,
+    "gifting": true,
+    "boosters": true,
+    "referralMilestones": true,
+    "antiAbuse": true,
+    "adminAnalytics": true
+  }
+}

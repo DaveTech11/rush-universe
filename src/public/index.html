@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Rush Bot Admin</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root { color-scheme: dark; }
+  body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; background:#0f1115; color:#eaeaea; margin:0; padding:24px; }
+  h1 { font-size: 20px; margin-bottom: 4px; }
+  .sub { color:#9aa0a6; margin-bottom: 24px; font-size: 13px; }
+  .card { background:#171a21; border:1px solid #262b36; border-radius: 10px; padding: 18px; margin-bottom: 20px; }
+  label { display:block; font-size: 12px; color:#9aa0a6; margin: 10px 0 4px; }
+  input, textarea { width:100%; box-sizing:border-box; background:#0f1115; border:1px solid #2a2f3a; color:#eaeaea; border-radius:6px; padding:8px 10px; font-size:14px; }
+  button { margin-top:14px; background:#e8452b; color:white; border:none; border-radius:6px; padding:10px 16px; font-size:14px; cursor:pointer; font-weight:600; }
+  button:hover { opacity:.9; }
+  button.secondary { background:#2a2f3a; }
+  table { width:100%; border-collapse: collapse; margin-top:10px; font-size: 13px; }
+  th, td { text-align:left; padding:8px; border-bottom:1px solid #262b36; }
+  .pill { display:inline-block; padding:2px 8px; border-radius:99px; font-size:11px; background:#26331f; color:#7fdb6a; }
+  .pill.sold { background:#3a2323; color:#ff8a8a; }
+  .drop-row { cursor:pointer; }
+  .drop-row:hover { background:#1c2029; }
+  #claims { display:none; }
+</style>
+</head>
+<body>
+  <h1>🏃 Rush Bot — Admin Panel</h1>
+  <div class="sub">Create a limited-stock drop, post it to your Telegram channel, and watch claims come in.</div>
+
+  <div class="card">
+    <strong>New Drop</strong>
+    <label>Title</label>
+    <input id="title" placeholder="Free Merch Drop #1" />
+    <label>Description</label>
+    <textarea id="description" rows="2" placeholder="First 20 people to tap the button win a hoodie."></textarea>
+    <label>Image URL (optional)</label>
+    <input id="imageUrl" placeholder="https://..." />
+    <label>Prize text (sent privately to winners)</label>
+    <input id="prizeText" placeholder="Show this code at pickup" />
+    <label>Stock (number of claims allowed)</label>
+    <input id="stock" type="number" value="10" />
+    <label>Expires after (minutes — optional, leave blank for no expiry)</label>
+    <input id="expiresInMinutes" type="number" placeholder="60" />
+    <label>Schedule for later (optional — leave blank to post manually with the button below)</label>
+    <input id="scheduledAt" type="datetime-local" />
+    <button onclick="createDrop()">Create Drop</button>
+  </div>
+
+  <div class="card">
+    <strong>Drops</strong>
+    <table>
+      <thead><tr><th>ID</th><th>Title</th><th>Status</th><th>Claimed</th><th>Posted</th><th>Schedule/Expiry</th><th></th></tr></thead>
+      <tbody id="dropsBody"></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <strong>⚡ Rush Gamification</strong>
+    <div class="sub">Live XP, activity, task and jackpot stats.</div>
+    <table><tbody id="analyticsBody"></tbody></table>
+  </div>
+
+  <div class="card">
+    <strong>📊 Leaderboard</strong>
+    <div class="sub"><a href="/api/leaderboard/export" style="color:#e8452b;">Download full CSV</a></div>
+    <table>
+      <thead><tr><th>#</th><th>User</th><th>Points</th></tr></thead>
+      <tbody id="leaderboardBody"></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <strong>🎰 Create Jackpot</strong>
+    <label>Title</label><input id="jackpotTitle" value="Rush Jackpot" />
+    <label>Prize points</label><input id="jackpotPrize" type="number" value="1000" />
+    <label>Duration (hours)</label><input id="jackpotHours" type="number" value="24" />
+    <button onclick="createJackpot()">Launch Jackpot</button>
+  </div>
+
+  <div class="card">
+    <strong>📣 Broadcast</strong>
+    <div class="sub">Sends a plain text message to every user who has ever started the bot.</div>
+    <label>Message</label>
+    <textarea id="broadcastMessage" rows="3" placeholder="New drop going live in 10 minutes! 👀"></textarea>
+    <button onclick="sendBroadcast()">Send Broadcast</button>
+  </div>
+
+  <div class="card">
+    <strong>New Task</strong>
+    <label>Type</label>
+    <select id="taskType" style="width:100%;box-sizing:border-box;background:#0f1115;border:1px solid #2a2f3a;color:#eaeaea;border-radius:6px;padding:8px 10px;font-size:14px;">
+      <option value="channel_join">Telegram channel join (auto-verified)</option>
+      <option value="whatsapp_join">WhatsApp group join (screenshot review)</option>
+      <option value="manual">Manual / self-report</option>
+      <option value="game">Game task (auto-completes on win)</option>
+    </select>
+    <label>Game (only for Game tasks)</label>
+    <select id="taskGameType" style="width:100%;box-sizing:border-box;background:#0f1115;border:1px solid #2a2f3a;color:#eaeaea;border-radius:6px;padding:8px 10px;font-size:14px;">
+      <option value="tictactoe">🎮 Tic-Tac-Toe</option>
+      <option value="rps">✊ Rock Paper Scissors</option>
+      <option value="chess">♟ Chess Puzzle</option>
+      <option value="quiz">🖼 Flag Quiz</option>
+      <option value="scramble">🔤 Word Scramble</option>
+      <option value="memory">🧠 Memory Match</option>
+    </select>
+    <label>Prize points (awarded automatically after completion)</label>
+    <input id="taskRewardPoints" type="number" min="0" step="1" value="0" placeholder="e.g. 5" />
+    <label>Label (shown to users)</label>
+    <input id="taskLabel" placeholder="Join our announcement channel" />
+    <label>Target chat (for Telegram channel_join — e.g. @mychannel or -100123...)</label>
+    <input id="taskTargetChat" placeholder="@mychannel" />
+    <label>Link (shown as a button — invite link, WhatsApp link, etc.)</label>
+    <input id="taskLink" placeholder="https://..." />
+    <button onclick="createTask()">Create Task</button>
+  </div>
+
+  <div class="card">
+    <strong>Tasks</strong>
+    <table>
+      <thead><tr><th>ID</th><th>Type</th><th>Label</th><th>Game</th><th>Prize</th><th>Target/Link</th></tr></thead>
+      <tbody id="tasksBody"></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <strong>Pending Screenshot Reviews</strong>
+    <div class="sub">Approve/reject these directly in Telegram (sent to your ADMIN_REVIEW_CHAT_ID) — listed here for visibility only.</div>
+    <table>
+      <thead><tr><th>ID</th><th>User</th><th>Task</th><th>Submitted</th></tr></thead>
+      <tbody id="reviewsBody"></tbody>
+    </table>
+  </div>
+
+  <div class="card" id="claims">
+    <strong>Claims for drop <span id="claimsDropId"></span></strong>
+    <div class="sub"><a id="claimsExportLink" href="#" style="color:#e8452b;">Download CSV</a></div>
+    <table>
+      <thead><tr><th>#</th><th>User</th><th>Code</th><th>Time</th></tr></thead>
+      <tbody id="claimsBody"></tbody>
+    </table>
+    <button class="secondary" onclick="document.getElementById('claims').style.display='none'">Close</button>
+  </div>
+
+<script>
+async function api(path, opts) {
+  const res = await fetch(path, opts);
+  if (!res.ok) throw new Error((await res.json()).error || res.statusText);
+  return res.json();
+}
+
+async function loadAnalytics() {
+  const a = await api('/api/gamification/analytics');
+  const j = a.jackpot ? `${a.jackpot.title} — ${a.jackpot.prize_points} pts / ${a.jackpot.totalTickets} tickets` : 'No active jackpot';
+  document.getElementById('analyticsBody').innerHTML = `
+    <tr><td>👥 Users</td><td>${a.users}</td></tr>
+    <tr><td>🟢 Active today</td><td>${a.activeToday}</td></tr>
+    <tr><td>🎮 Game sessions</td><td>${a.games}</td></tr>
+    <tr><td>🎯 Completed tasks</td><td>${a.taskCompletions}</td></tr>
+    <tr><td>💰 Points awarded</td><td>${a.pointsAwarded}</td></tr>
+    <tr><td>🎰 Jackpot</td><td>${escapeHtml(j)}</td></tr>`;
+}
+
+async function createJackpot() {
+  await api('/api/jackpot', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({
+    title: document.getElementById('jackpotTitle').value,
+    prize_points: Number(document.getElementById('jackpotPrize').value || 1000),
+    durationHours: Number(document.getElementById('jackpotHours').value || 24)
+  })});
+  alert('Jackpot launched!');
+  loadAnalytics();
+}
+
+async function loadDrops() {
+  const drops = await api('/api/drops');
+  const body = document.getElementById('dropsBody');
+  body.innerHTML = drops.map(d => {
+    const now = new Date();
+    const expired = d.expires_at && new Date(d.expires_at) <= now;
+    const scheduled = d.scheduled_at && !d.scheduled_posted;
+    let statusPill = '<span class="pill">live</span>';
+    if (expired) statusPill = '<span class="pill sold">expired</span>';
+    else if (d.claimed_count >= d.stock) statusPill = '<span class="pill sold">sold out</span>';
+    else if (scheduled) statusPill = '<span class="pill">scheduled</span>';
+    let schedText = '—';
+    if (d.scheduled_at) schedText = `📅 ${d.scheduled_at}${d.scheduled_posted ? ' (posted)' : ''}`;
+    else if (d.expires_at) schedText = `⏰ expires ${d.expires_at}`;
+    return `
+    <tr class="drop-row" onclick="showClaims(${d.id})">
+      <td>${d.id}</td>
+      <td>${escapeHtml(d.title)}</td>
+      <td>${statusPill}</td>
+      <td>${d.claimed_count}/${d.stock}</td>
+      <td>${d.chat_message_id ? '✅' : '—'}</td>
+      <td style="font-size:11px;">${schedText}</td>
+      <td><button onclick="event.stopPropagation(); postDrop(${d.id})">${d.chat_message_id ? 'Re-post' : 'Post Now'}</button></td>
+    </tr>`;
+  }).join('');
+}
+
+async function createDrop() {
+  const scheduledAtRaw = document.getElementById('scheduledAt').value;
+  const body = {
+    title: document.getElementById('title').value,
+    description: document.getElementById('description').value,
+    imageUrl: document.getElementById('imageUrl').value,
+    prizeText: document.getElementById('prizeText').value,
+    stock: document.getElementById('stock').value,
+    expiresInMinutes: document.getElementById('expiresInMinutes').value || null,
+    scheduledAt: scheduledAtRaw ? new Date(scheduledAtRaw).toISOString() : null,
+  };
+  if (!body.title || !body.stock) return alert('Title and stock are required');
+  await api('/api/drops', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  document.getElementById('title').value = '';
+  document.getElementById('description').value = '';
+  document.getElementById('imageUrl').value = '';
+  document.getElementById('prizeText').value = '';
+  document.getElementById('expiresInMinutes').value = '';
+  document.getElementById('scheduledAt').value = '';
+  loadDrops();
+}
+
+async function postDrop(id) {
+  try {
+    await api(`/api/drops/${id}/post`, { method: 'POST' });
+    loadDrops();
+  } catch (e) {
+    alert('Failed to post: ' + e.message);
+  }
+}
+
+async function showClaims(id) {
+  const claims = await api(`/api/drops/${id}/claims`);
+  document.getElementById('claimsDropId').textContent = id;
+  document.getElementById('claimsExportLink').href = `/api/drops/${id}/claims/export`;
+  document.getElementById('claimsBody').innerHTML = claims.map((c, i) => `
+    <tr><td>${i+1}</td><td>${escapeHtml(c.username || String(c.user_id))}</td><td>${c.code}</td><td>${c.claimed_at}</td></tr>
+  `).join('');
+  document.getElementById('claims').style.display = 'block';
+}
+
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+}
+
+async function loadTasks() {
+  const tasks = await api('/api/tasks');
+  document.getElementById('tasksBody').innerHTML = tasks.map(t => `
+    <tr><td>${t.id}</td><td>${t.type}</td><td>${escapeHtml(t.label)}</td><td>${escapeHtml(t.game_type || '—')}</td><td>${Number(t.reward_points || 0)} pts</td><td>${escapeHtml(t.target_chat || t.link || '—')}</td></tr>
+  `).join('');
+}
+
+async function createTask() {
+  const body = {
+    type: document.getElementById('taskType').value,
+    label: document.getElementById('taskLabel').value,
+    target_chat: document.getElementById('taskTargetChat').value,
+    link: document.getElementById('taskLink').value,
+    game_type: document.getElementById('taskGameType').value,
+    reward_points: Number(document.getElementById('taskRewardPoints').value || 0),
+  };
+  if (!body.label) return alert('Label is required');
+  await api('/api/tasks', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  document.getElementById('taskLabel').value = '';
+  document.getElementById('taskTargetChat').value = '';
+  document.getElementById('taskLink').value = '';
+  document.getElementById('taskRewardPoints').value = '0';
+  loadTasks();
+}
+
+async function loadReviews() {
+  const reviews = await api('/api/reviews');
+  document.getElementById('reviewsBody').innerHTML = reviews.map(r => `
+    <tr><td>${r.id}</td><td>${r.user_id}</td><td>${r.task_id}</td><td>${r.created_at}</td></tr>
+  `).join('');
+}
+
+async function loadLeaderboard() {
+  const users = await api('/api/leaderboard?limit=20');
+  document.getElementById('leaderboardBody').innerHTML = users.map((u, i) => `
+    <tr><td>${i+1}</td><td>${escapeHtml(u.username || 'user'+u.user_id)}</td><td>${u.points}</td></tr>
+  `).join('');
+}
+
+async function sendBroadcast() {
+  const message = document.getElementById('broadcastMessage').value;
+  if (!message) return alert('Message is required');
+  if (!confirm('Send this to every user who has started the bot?')) return;
+  const result = await api('/api/broadcast', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ message }) });
+  alert(`Sent to ${result.sent}/${result.total} users (${result.failed} failed — likely blocked the bot).`);
+  document.getElementById('broadcastMessage').value = '';
+}
+
+loadDrops();
+loadTasks();
+loadAnalytics();
+loadReviews();
+loadLeaderboard();
+setInterval(loadDrops, 5000);
+setInterval(loadAnalytics, 10000);
+setInterval(loadTasks, 8000);
+setInterval(loadReviews, 8000);
+setInterval(loadLeaderboard, 10000);
+</script>
+</body>
+</html>
